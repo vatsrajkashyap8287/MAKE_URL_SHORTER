@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URL Shortener | Quick & Analytics Enabled</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between font-sans">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 py-4 px-6 flex justify-between items-center">
+    <div class="flex items-center gap-2">
+      <i class="fa-solid fa-link text-indigo-500 text-2xl"></i>
+      <span class="text-xl font-bold tracking-wide text-indigo-400">ShortX</span>
+    </div>
+    <a href="https://github.com" target="_blank" class="text-slate-400 hover:text-white transition">
+      <i class="fa-brands fa-github text-xl"></i>
+    </a>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-3xl mx-auto px-4 py-12 w-full">
+    
+    <!-- Hero Section -->
+    <div class="text-center mb-10">
+      <h1 class="text-4xl sm:text-5xl font-extrabold mb-4 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+        Shorten Your Long Links
+      </h1>
+      <p class="text-slate-400 text-lg">Fast, reliable, and cached with Redis for sub-millisecond redirections.</p>
+    </div>
+
+    <!-- Shorten Form -->
+    <div class="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 shadow-xl mb-8 backdrop-blur-sm">
+      <form id="shortenForm" class="flex flex-col sm:flex-row gap-3">
+        <input 
+          type="url" 
+          id="originalUrl" 
+          placeholder="Paste your long URL here (e.g., https://example.com/long-page)" 
+          required 
+          class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+        >
+        <button 
+          type="submit" 
+          id="submitBtn"
+          class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl transition flex items-center justify-center gap-2"
+        >
+          <span>Shorten</span>
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </button>
+      </form>
+
+      <!-- Result Card -->
+      <div id="resultCard" class="hidden mt-6 pt-6 border-t border-slate-700/60">
+        <p class="text-xs font-semibold text-indigo-400 uppercase tracking-wider mb-2">Your Shortened Link</p>
+        <div class="flex items-center justify-between bg-slate-900 border border-indigo-500/30 p-3 rounded-xl gap-2">
+          <a id="shortUrlOutput" href="#" target="_blank" class="text-indigo-400 font-medium hover:underline truncate"></a>
+          <button id="copyBtn" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition">
+            <i class="fa-regular fa-copy"></i>
+            <span>Copy</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics Inspector -->
+    <div class="bg-slate-800/40 p-6 rounded-2xl border border-slate-800">
+      <h2 class="text-lg font-bold text-slate-200 mb-3 flex items-center gap-2">
+        <i class="fa-solid fa-chart-line text-indigo-400"></i>
+        <span>Check Analytics</span>
+      </h2>
+      <div class="flex gap-2 mb-4">
+        <input 
+          type="text" 
+          id="analyticsCode" 
+          placeholder="Enter short code (e.g., 3VIHzD4)" 
+          class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+        >
+        <button id="fetchAnalyticsBtn" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-medium transition">
+          Inspect
+        </button>
+      </div>
+
+      <div id="analyticsDisplay" class="hidden bg-slate-900 p-4 rounded-xl border border-slate-800 text-sm space-y-2">
+        <div class="flex justify-between border-b border-slate-800 pb-2">
+          <span class="text-slate-400">Total Clicks:</span>
+          <span id="clickCount" class="font-bold text-emerald-400 text-base">0</span>
+        </div>
+        <div class="flex justify-between border-b border-slate-800 pb-2">
+          <span class="text-slate-400">Original URL:</span>
+          <span id="analyticsOriginalUrl" class="font-mono text-slate-300 truncate max-w-[250px] sm:max-w-[400px]"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">Created At:</span>
+          <span id="createdAt" class="text-slate-300"></span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center py-6 text-slate-500 text-sm border-t border-slate-800">
+    Powered by Node.js, Express, MongoDB & Redis
+  </footer>
+
+  <!-- App Script -->
+  <script>
+    const form = document.getElementById('shortenForm');
+    const resultCard = document.getElementById('resultCard');
+    const shortUrlOutput = document.getElementById('shortUrlOutput');
+    const copyBtn = document.getElementById('copyBtn');
+
+    // Shorten Submit
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const originalUrl = document.getElementById('originalUrl').value;
+      const submitBtn = document.getElementById('submitBtn');
+      
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Processing...`;
+
+      try {
+        const res = await fetch('/api/shorten', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ originalUrl })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          shortUrlOutput.href = data.data.shortUrl;
+          shortUrlOutput.textContent = data.data.shortUrl;
+          resultCard.classList.remove('hidden');
+        } else {
+          alert(data.errors ? data.errors[0].message : 'Failed to shorten URL');
+        }
+      } catch (err) {
+        alert('Something went wrong!');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<span>Shorten</span> <i class="fa-solid fa-wand-magic-sparkles"></i>`;
+      }
+    });
+
+    // Copy to clipboard
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(shortUrlOutput.textContent);
+      copyBtn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> <span>Copied!</span>`;
+      setTimeout(() => {
+        copyBtn.innerHTML = `<i class="fa-regular fa-copy"></i> <span>Copy</span>`;
+      }, 2000);
+    });
+
+    // Analytics Fetch
+    document.getElementById('fetchAnalyticsBtn').addEventListener('click', async () => {
+      const code = document.getElementById('analyticsCode').value.trim();
+      if(!code) return alert('Please enter a short code');
+
+      try {
+        const res = await fetch(`/api/analytics/${code}`);
+        const data = await res.json();
+
+        if(data.success) {
+          document.getElementById('clickCount').textContent = data.data.clicks;
+          document.getElementById('analyticsOriginalUrl').textContent = data.data.originalUrl;
+          document.getElementById('createdAt').textContent = new Date(data.data.createdAt).toLocaleDateString();
+          document.getElementById('analyticsDisplay').classList.remove('hidden');
+        } else {
+          alert('URL Code Not Found!');
+        }
+      } catch (err) {
+        alert('Error fetching analytics');
+      }
+    });
+  </script>
+</body>
+</html>
